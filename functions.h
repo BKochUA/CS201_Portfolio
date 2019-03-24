@@ -1,6 +1,12 @@
 #ifndef FUNCTIONS_H_INCLUDED
 #define FUNCTIONS_H_INCLUDED
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <ncurses.h>
+#include <string.h>
+#include <stdbool.h>
+
 struct FoodItem
 {
     unsigned int ID;
@@ -14,12 +20,9 @@ struct FoodItem
 struct TreeNode
 {
     struct TreeNode *children[256];
-    struct TreeNode *suffixLink;
-    struct FoodItem *items[2];
+    struct FoodItem *items;
 
-    int start;
-    int *end;
-    int suffixIndex;
+    bool isLeaf;
 };
 
 typedef struct TreeNode Node;
@@ -60,7 +63,7 @@ void printFoodItem(struct FoodItem *itemToPrint)
  * energy = 200.0 * (40.0/100.0)
  * energy
 */
-void createItem(const char *data)
+struct FoodItem createItem(const char *data)
 {
     static char tempstr[300];
     strcpy(tempstr, data);
@@ -120,8 +123,51 @@ void createItem(const char *data)
         pch = tokenize(NULL, "~");
         count++;
     }
-    printFoodItem(&createdItem);
-    printf("_____________________________________________________\n");
+    return createdItem;
+    //printFoodItem(&createdItem);
+    //printf("_____________________________________________________\n");
+}
+
+//theoryofprogramming.com/2015/09/01/trie-tree-practise-spoj-dict/
+//was used for both insert and searchWord
+void insert(struct TreeNode *trieTree, struct FoodItem *item)
+{
+    struct TreeNode *temp = trieTree;
+
+    while(*item->name != '\0')
+    {
+        if(temp->children[*item->name - 'a'] == NULL)
+        {
+            temp->children[*item->name - 'a'] = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
+        }
+
+        temp = temp->children[*item->name - 'a'];
+        ++*item->name;
+    }
+
+    temp->items = item;
+    temp->isLeaf = true;
+    free(temp->children);
+}
+
+void insert2(struct TreeNode *trieTree, char *word)
+{
+    struct TreeNode *temp = trieTree;
+
+    while(*word != '\0')
+    {
+        if(temp->children[*word - 'A'] == NULL)
+        {
+            temp->children[*word- 'A'] = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
+        }
+
+        temp = temp->children[*word - 'A'];
+        ++word;
+    }
+
+    //temp->items = item;
+    temp->isLeaf = true;
+    //free(temp->children);
 }
 
 #endif
