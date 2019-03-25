@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "functions.h"
 
 int currentScreen = 0;
@@ -11,9 +12,10 @@ const char *options[] = {"View Today's Log", "Search for Food", "Return to Login
 int keyPress;
 int selected = 0;
 int loopvar = 1;
-WINDOW *mainMenu, *loginScreen;
+WINDOW *mainScreen, *mainMenu, *loginScreen, *searchBar, *searchResults;
 int day, month, year;
 char username[20];
+char searchKey[75];
 int ch;
 
 //get current date
@@ -116,7 +118,14 @@ void ScreenHandler()
                         if(selected != 3) selected++;
                         break;
                     case 10:
-                        if(selected == 2)
+                        if(selected == 0)
+                        {
+
+                        }else if(selected == 1)
+                        {
+                            currentScreen = 3;
+                            wclear(mainMenu);
+                        }else if(selected == 2)
                         {
                             currentScreen = 0; //sets current screen to loginscreen
                             memset(username, 0, strlen(username)); //clears the username
@@ -132,6 +141,40 @@ void ScreenHandler()
                 wrefresh(mainMenu);
                 break;
             case 3: //food search
+                box(mainMenu, 0, 0);
+                box(searchResults, 0, 0);
+                box(searchBar, 0, 0);
+                mvwprintw(mainScreen, 1, 1, "Enter the name of the food you're looking for:");
+                wrefresh(mainScreen);
+                wrefresh(searchBar);
+                wrefresh(searchResults);
+                ch = getchar();
+                if(strlen(searchKey) == 0)
+                {
+                    mvwprintw(searchBar, 1, 1, "                    ");
+                }
+                if((ch > 64 && ch < 91) || (ch > 96 && ch < 123) || ch == 127 || ch == 32 || ch == 95) //this only allows letters, spaces, underscores, and backspaces through when inputting username
+                {
+                    if(ch == 127 && strlen(searchKey) != 0) //handles backspacing
+                    {
+                        searchKey[strlen(searchKey)-1] = '\0';
+
+                        mvwprintw(searchBar, 1, 1, "                                                                                        ");
+                        mvwprintw(searchBar, 1, 1, "%s", searchKey);
+                        //mvwprintw(loginScreen, 2, (int)strlen(username), "%c", 0);
+                    }else if(strlen(searchKey) < 75 && ch != 127) //puts characters into username string and on screen
+                    {
+                        searchKey[strlen(searchKey)] = (char)toupper(ch);
+                        mvwprintw(searchBar, 1, 1, "%s", searchKey);
+                        //mvwprintw(loginScreen, 2, (int)strlen(username), "%c", ch);
+                    }
+                    if(strlen(searchKey) == 75)
+                    {
+                        //mvwprintw(searchBar, 1, 1, "You have reached the character limit (20)");
+                    }//else { //mvwprintw(searchBar, 1, 1, "                                         "); }
+
+                }
+                wrefresh(searchBar);
                 break;
             case 4: //food diary
                 break;
@@ -170,6 +213,7 @@ int main() {
 
     printf("done");
     initscr();
+    //resizeterm(24, 80);
     noecho();
     cbreak();
     curs_set(0);
@@ -177,7 +221,7 @@ int main() {
 
     int sizeY, sizeX;
     getmaxyx(stdscr, sizeY, sizeX);
-    WINDOW *mainScreen = newwin(sizeY, sizeX, 0, 0);
+    mainScreen = newwin(sizeY, sizeX, 0, 0);
     //printf("%d ", sizeY);
     //printf("%d", sizeX);
     box(mainScreen, 0, 0);
@@ -192,6 +236,13 @@ int main() {
     box(loginScreen, 0, 0);
     refresh();
     wrefresh(loginScreen);
+
+
+    searchBar = newwin(3, sizeX-2, 2, 1);
+    searchResults = newwin(sizeY-6, sizeX-2, 5, 1);
+    refresh();
+    wrefresh(searchBar);
+    wrefresh(searchResults);
     wrefresh(mainScreen);
 
     while(loopvar)
