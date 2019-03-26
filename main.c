@@ -13,6 +13,7 @@ int keyPress;
 int selected = 0;
 int loopvar = 1;
 WINDOW *mainScreen, *mainMenu, *loginScreen, *searchBar, *searchResults;
+struct TreeNode *trieTree;
 int day, month, year;
 char username[20];
 char searchKey[75];
@@ -153,7 +154,46 @@ void ScreenHandler()
                 {
                     mvwprintw(searchBar, 1, 1, "                    ");
                 }
-                if((ch > 64 && ch < 91) || (ch > 96 && ch < 123) || ch == 127 || ch == 32 || ch == 95) //this only allows letters, spaces, underscores, and backspaces through when inputting username
+                //mvwprintw(searchResults, 1, 1, "%d", ch);
+                //wrefresh(searchResults);
+                if(ch == 13)
+                {
+                    //mvwprintw(searchResults, 1, 1, "pressed enter");
+                    wrefresh(searchResults);
+                    //these 2 lines are just here so I can read the error summary from valgrind
+                    //loopvar = 0;
+                    //endwin();
+
+                    struct TreeNode *temp = searchWord(trieTree, searchKey);
+                    if(temp != NULL)
+                    {
+                        bool childrenThere = false;
+
+                        for(int j = 0; j < 256; ++j)
+                        {
+                            if(temp->children[j] != NULL)
+                            {
+                                childrenThere = true;
+                                break;
+                            }
+                        }
+
+                        if(childrenThere)
+                        {
+                            char printUtil[199];
+                            //char *printUtil;
+
+                            printAllWords(temp, printUtil, 0, searchResults);
+
+                            //lexicographPrint(temp, printUtil, searchKey, searchResults);
+                        }else { mvwprintw(searchResults, 1, 1, "no match                        "); }
+                    }else { mvwprintw(searchResults, 1, 1, "no match                        "); }
+                }else if(ch == 27)
+                {
+                    //mvwprintw(searchResults, 1, 1, "pressed enter");
+                    wrefresh(searchResults);
+                    loopvar = 0;
+                }else
                 {
                     if(ch == 127 && strlen(searchKey) != 0) //handles backspacing
                     {
@@ -191,27 +231,25 @@ int main() {
     //read all the data
     FILE *datafile;
     char str[300];
-    datafile = fopen("food_nutrient_db2.csv", "r");
+    datafile = fopen("food_nutrient_db.csv", "r");
     int count = 0;
     //strcpy(username, "Brian");
 
-    struct TreeNode *trieTree = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
+    trieTree = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
     while(fgets(str, sizeof(str), datafile))
     {
         if(count < 100)
         {
             //struct FoodItem *newItem;
             //*newItem = createItem(str);
-            //insert2(trieTree, str);
+            insert2(trieTree, str);
         }
         count++;
     }
 
     fclose(datafile);
     free(datafile);
-    free(trieTree);
 
-    printf("done");
     initscr();
     //resizeterm(24, 80);
     noecho();
@@ -245,12 +283,16 @@ int main() {
     wrefresh(searchResults);
     wrefresh(mainScreen);
 
+
+
     while(loopvar)
     {
 	    ScreenHandler();
     }
     wrefresh(mainMenu);
 
+
     endwin();
+    free(trieTree);
     return 0;
 }

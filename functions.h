@@ -153,21 +153,128 @@ void insert(struct TreeNode *trieTree, struct FoodItem *item)
 void insert2(struct TreeNode *trieTree, char *word)
 {
     struct TreeNode *temp = trieTree;
-
-    while(*word != '\0')
+    char data[300];
+    strcpy(data, word);
+    word = word + 9; //clears
+    while(*word != '~')
     {
-        if(temp->children[*word - 'A'] == NULL)
+        //if(temp->children[*word - 'A'] == NULL)
+        if(temp->children[*word] == NULL)
         {
-            temp->children[*word- 'A'] = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
+            //temp->children[*word- 'A'] = calloc(1, sizeof(struct TreeNode));
+            temp->children[*word] = calloc(1, sizeof(struct TreeNode));
         }
 
-        temp = temp->children[*word - 'A'];
+        //temp = temp->children[*word - 'A'];
+        temp = temp->children[*word];
         ++word;
+        //printf("%s", word);
     }
 
+
     //temp->items = item;
+    //try gdb for this
+    //*temp->items = createItem(data);
     temp->isLeaf = true;
     //free(temp->children);
+}
+
+struct TreeNode *searchWord(struct TreeNode *node, char *searchWord)
+{
+    //printw("searching\n");
+    while(*searchWord != '\0')
+    {
+        //if(node->children[*searchWord - 'A'] != NULL)
+        if(node->children[*searchWord] != NULL)
+        {
+            node = node->children[*searchWord];
+            //node = node->children[*searchWord - 'A'];
+            ++searchWord;
+        }else
+        {
+            break;
+        }
+    }
+
+    if(*searchWord == '\0')
+    {
+        return node;
+    }else
+    {
+        return NULL;
+    }
+}
+
+
+//www.ritambhara.in/print-all-words-in-a-trie-data-structure/
+void printAllWords(struct TreeNode *root, char *wordArray, int pos, WINDOW *searchResults)
+{
+    if(root == NULL)
+    {
+        return;
+    }
+    if(root->isLeaf)
+    {
+
+        for(int j=0; j<pos; j++)
+        {
+            mvwprintw(searchResults, j+1, 1, "%s", wordArray);
+        }
+    }
+    for(int i=0; i<256; i++)
+    {
+        if(root->children[i] != NULL)
+        {
+            wordArray[pos] = (char)i;
+            printAllWords(root->children[i], wordArray, pos+1, searchResults);
+        }
+    }
+}
+
+void lexicographPrint(struct TreeNode *trieTree, char *word, char *prefix, WINDOW *searchResults)
+{
+    int i;
+    bool noChild = true;
+
+    if(trieTree->isLeaf && strlen(word) != 0)
+    {
+        mvwprintw(searchResults, 3, 1, "%s", word);
+        char *itr;
+        itr = &word[0];
+        mvwprintw(searchResults, 1, 1, "%s", prefix);
+        //printf("%s", prefix);
+        while(*itr != word[strlen(word)-1])
+        {
+            mvwprintw(searchResults, 1, (int)strlen(prefix)+1, "%c", *itr);
+            //printf("%c", *itr);
+            //printf("before");
+            itr++;
+            //printf("after");
+        }
+        printf("\n");
+    }
+    //printf("2");
+
+    char currentWord[strlen(word)+1];
+    for(i = 0; i<256; ++i)
+    {
+        if(trieTree->children[i] != NULL)
+        {
+            noChild = false;
+            strncpy(currentWord, word, strlen(word));
+            //currentWord[strlen(word)-1] = (char)('A'+i);
+            currentWord[strlen(word)-1] = (char)(i);
+            fflush(stdout);
+            lexicographPrint(trieTree->children[i], currentWord, prefix, searchResults);
+            currentWord[strlen(word)-1] = '\0';
+        }
+    }
+    //printf("3");
+
+    //currentWord[strlen(word)-1] = '\0';
+
+    //printf("4");
+
 }
 
 #endif
