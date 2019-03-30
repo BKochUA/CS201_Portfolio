@@ -183,9 +183,22 @@ void ScreenHandler()
                     //these 2 lines are just here so I can read the error summary from valgrind
                     //loopvar = 0;
                     //endwin();
-                    struct RadixNode foundNode = *find(radixTree, &searchKey[0], 0);
-                    printf("%s", foundNode.key);
+                    //struct RadixNode foundNode = *find(radixTree, &searchKey[0], 0);
+                    //printf("%s", foundNode.key);
 
+                    struct FoodItem results[40];
+                    char *printUtility = malloc(200*sizeof(char));
+                    findByPrefix(radixTree, searchKey, 0, results, printUtility);
+
+                    for(int q=0; q < 40; q++)
+                    {
+                        if(strncmp(results[q].name, "", 1) == 0)
+                        {
+                            break;
+                        }
+                        mvwprintw(searchResults, q+1, 1, "item: %s - mfg: %s", results[q].name, results[q].mfg);
+                    }
+                    free(printUtility);
                     //mvwprintw(searchResults, 1, 1, foundNode->key);
 
                     //old way, it works but the setup is waaaay too long
@@ -298,14 +311,6 @@ int main() {
     fclose(datafile);
     //free(datafile);
 
-    char *first = "BARBECUE";
-    struct RadixNode *result = 0;
-    result = findByPrefix(radixTree, first, 0);
-    if(result)
-    {
-        printf("\n%s\n" ,result->key);
-    } else{ printf("\nwooow ok then\n"); }
-
     /* //prints all of the top level nodes
     struct RadixNode *hmm = radixTree;
     for(int l=0; l<1000; l++)
@@ -320,14 +325,6 @@ int main() {
             break;
         }
     }*/
-
-    struct RadixNode *p = 0;
-    //p = find(radixTree, "ORIGINAL BARBECUE SAUCE~FRESH & EASY~189.0~48.65~0.0~0.0~37.0~g~2.0~Tbsp\n", 0);
-    p = find(radixTree, "ORIGINAL BARBECUE S", 0);
-    if(p)
-    {
-        printf("%s" ,p->key);
-    }
 
 
     initscr();
