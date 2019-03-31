@@ -172,7 +172,7 @@ struct RadixNode* find(struct RadixNode* t, char* x, int n) // x key search in t
     return 0;
 }
 
-struct RadixNode* findByPrefix(struct RadixNode *root, char* searchKey, int n, struct FoodItem *results, char* originalKey)
+int findByPrefix(struct RadixNode *root, char* searchKey, int n, struct FoodItem *results, char* originalKey)
 {
     if( !n ) //if n is 0, assign to length of searchkey
     {
@@ -192,7 +192,7 @@ struct RadixNode* findByPrefix(struct RadixNode *root, char* searchKey, int n, s
     }
     if(k == n)
     {
-        printf("key: %s %d, link: %s, link's next: %s\n", root->key, root->len, root->link->key, root->link->next->key);
+        //printf("key: %s %d, link: %s, link's next: %s\n", root->key, root->len, root->link->key, root->link->next->key);
         int count = 0;
         while(root->next && root->link)
         {
@@ -226,13 +226,12 @@ struct RadixNode* findByPrefix(struct RadixNode *root, char* searchKey, int n, s
             root = temp->next;
             free(word);
         }
-        results[count+1] = *createItem("~~~~~~~~");
         //printf("perfect Match: %s\n", root->key);
-        return 0;
+        return count;
     }
     if(k == root->len)
     {
-        //printf("match of length: %s\n", root->key);
+        printf("match of length: %s\n", root->key);
         return findByPrefix(root->link, searchKey+k, n-k, results, originalKey);
     }
     /*
@@ -332,5 +331,44 @@ void getAllItems2(struct TreeNode *root, struct FoodItem *results, char *wordUti
     }
 }
 
+struct DiaryEntry
+{
+    short year, month, day;
+    struct RadixNode *items;
+    int *servings;
+};
+
+void loadUserDiary(FILE *diary)
+{
+    int count = 0;
+    char str[300];
+    struct DiaryEntry *newEntry;
+    while(fgets(str, sizeof(str), diary))
+    {
+        if(str[0] == '~') //line contains date information
+        {
+            count = 0;
+            short year = (str[1]-48)*1000 + (str[2]-48)*100 + (str[3]-48)*10 + (str[4]-48);
+            short month = (str[5]-48)*10 + (str[6]-48);
+            short day = (str[7]-48)*10 + (str[8]-48);
+            char *nl;
+            nl = strchr(str, '\n');
+            unsigned long numItems = strtoul(str+9, &nl, 0);
+            newEntry = malloc(sizeof(struct DiaryEntry) + numItems*(sizeof(struct RadixNode*)+sizeof(int*)));
+            free(newEntry);
+        }else
+        {
+            //tutorialspoint.com/c_standard_library/c_function_strtok.htm
+            char *token;
+            token = strtok(str, "~");
+            while(token != NULL)
+            {
+                token = strtok(NULL, "~");
+            }
+            //printf("%s", str);
+        }
+        count++;
+    }
+}
 
 #endif
