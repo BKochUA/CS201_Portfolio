@@ -10,22 +10,12 @@
 struct FoodItem
 {
     unsigned int ID;
-    char name[200]; //max is 199
+    char name[300]; //max is 199
     char mfg[80]; //max is 78
     float calories, carbs, fat, protein, servingWeight, servingSize;
     char servingUnits[130];
     bool grams;
 };
-
-struct TreeNode
-{
-    struct TreeNode *children[256];
-    struct FoodItem *items;
-
-    bool isLeaf;
-};
-
-typedef struct TreeNode Node;
 
 static char *tokenize(char *str, const char *delimiter)
 {
@@ -63,59 +53,58 @@ void printFoodItem(struct FoodItem *itemToPrint)
  * energy = 200.0 * (40.0/100.0)
  * energy
 */
-struct FoodItem createItem(const char *data)
+struct FoodItem *createItem(const char *data)
 {
     static char tempstr[300];
     strcpy(tempstr, data);
     char *pch = tokenize(tempstr, "~");
     int count = 0;
     float tempServingWeight;
-    struct FoodItem createdItem;
+    struct FoodItem *createdItem = calloc(1, sizeof(struct FoodItem));
     while(pch != NULL)
     {
         switch(count)
         {
+
             case 0:
-                createdItem.ID = (unsigned int)strtod(pch, NULL);
+                strcpy(createdItem->name, data);
+                //strcpy(createdItem->name, pch);
                 break;
             case 1:
-                strcpy(createdItem.name, pch);
+                strcpy(createdItem->mfg, pch);
                 break;
             case 2:
-                strcpy(createdItem.mfg, pch);
+                createdItem->calories = (float)strtod(pch, NULL);
                 break;
             case 3:
-                createdItem.calories = (float)strtod(pch, NULL);
+                createdItem->carbs = (float)strtod(pch, NULL);
                 break;
             case 4:
-                createdItem.carbs = (float)strtod(pch, NULL);
+                createdItem->fat = (float)strtod(pch, NULL);
                 break;
             case 5:
-                createdItem.fat = (float)strtod(pch, NULL);
+                createdItem->protein = (float)strtod(pch, NULL);
                 break;
             case 6:
-                createdItem.protein = (float)strtod(pch, NULL);
+                tempServingWeight = (float)strtod(pch, NULL);
+                createdItem->servingWeight = tempServingWeight;
+                createdItem->calories = createdItem->calories * (tempServingWeight / 100.0f);
+                createdItem->carbs = createdItem->carbs * (tempServingWeight / 100.0f);
+                createdItem->fat = createdItem->fat * (tempServingWeight / 100.0f);
+                createdItem->protein = createdItem->protein * (tempServingWeight / 100.0f);
                 break;
             case 7:
-                tempServingWeight = (float)strtod(pch, NULL);
-                createdItem.servingWeight = tempServingWeight;
-                createdItem.calories = createdItem.calories * (tempServingWeight / 100.0f);
-                createdItem.carbs = createdItem.carbs * (tempServingWeight / 100.0f);
-                createdItem.fat = createdItem.fat * (tempServingWeight / 100.0f);
-                createdItem.protein = createdItem.protein * (tempServingWeight / 100.0f);
-                break;
-            case 8:
                 if(strcmp(pch, "g") == 0)
                 {
-                    createdItem.grams = true;
-                }else { createdItem.grams = false; }
+                    createdItem->grams = true;
+                }else { createdItem->grams = false; }
+                break;
+            case 8:
+                createdItem->servingSize = (float)strtod(pch, NULL);
                 break;
             case 9:
-                createdItem.servingSize = (float)strtod(pch, NULL);
-                break;
-            case 10:
                 pch[strlen(pch)-1] = 0;
-                strcpy(createdItem.servingUnits, pch);
+                strcpy(createdItem->servingUnits, pch);
                 break;
             default:
                 break;
@@ -128,153 +117,207 @@ struct FoodItem createItem(const char *data)
     //printf("_____________________________________________________\n");
 }
 
-//theoryofprogramming.com/2015/09/01/trie-tree-practise-spoj-dict/
-//was used for both insert and searchWord
-void insert(struct TreeNode *trieTree, struct FoodItem *item)
+
+//kukuruku.co/post/radix-trees
+struct RadixNode // a structure to represent tree nodes
 {
-    struct TreeNode *temp = trieTree;
+    //char* key;
+    int len;
+    struct RadixNode* link;
+    struct RadixNode* next;
+    char key[];
+};
 
-    while(*item->name != '\0')
-    {
-        if(temp->children[*item->name - 'a'] == NULL)
-        {
-            temp->children[*item->name - 'a'] = (struct TreeNode *) calloc(1, sizeof(struct TreeNode));
-        }
-
-        temp = temp->children[*item->name - 'a'];
-        ++*item->name;
-    }
-
-    temp->items = item;
-    temp->isLeaf = true;
-    free(temp->children);
+struct RadixNode *newRadixNode(char *x, int n)
+{
+    struct RadixNode *RN = malloc(sizeof(struct RadixNode) + n*sizeof(char));
+    RN->len = n;
+    RN->link = 0;
+    RN->next = 0;
+    //memset(RN->key, 0, n*sizeof(char));
+    //RN->key[n] = '\0';
+    strncpy(RN->key, x, n);
+    return RN;
 }
 
-void insert2(struct TreeNode *trieTree, char *word)
+int prefix(const char *x, int n, const char *key, int m) // length of the biggest common prefix of x and key strings
 {
-    struct TreeNode *temp = trieTree;
-    char data[300];
-    strcpy(data, word);
-    word = word + 9; //clears
-    while(*word != '~')
-    {
-        //if(temp->children[*word - 'A'] == NULL)
-        if(temp->children[*word] == NULL)
+    for( int k=0; k<n; k++ ) {
+        if (k == m || x[k] != key[k])
         {
-            //temp->children[*word- 'A'] = calloc(1, sizeof(struct TreeNode));
-            temp->children[*word] = calloc(1, sizeof(struct TreeNode));
-        }
-
-        //temp = temp->children[*word - 'A'];
-        temp = temp->children[*word];
-        ++word;
-        //printf("%s", word);
-    }
-
-
-    //temp->items = item;
-    //try gdb for this
-    //*temp->items = createItem(data);
-    temp->isLeaf = true;
-    //free(temp->children);
-}
-
-struct TreeNode *searchWord(struct TreeNode *node, char *searchWord)
-{
-    //printw("searching\n");
-    while(*searchWord != '\0')
-    {
-        //if(node->children[*searchWord - 'A'] != NULL)
-        if(node->children[*searchWord] != NULL)
-        {
-            node = node->children[*searchWord];
-            //node = node->children[*searchWord - 'A'];
-            ++searchWord;
-        }else
-        {
-            break;
+            return k;
         }
     }
-
-    if(*searchWord == '\0')
-    {
-        return node;
-    }else
-    {
-        return NULL;
-    }
+    return n;
 }
 
-
-//www.ritambhara.in/print-all-words-in-a-trie-data-structure/
-void printAllWords(struct TreeNode *root, char *wordArray, int pos, WINDOW *searchResults)
+struct RadixNode* find(struct RadixNode* t, char* x, int n) // x key search in t tree, call with n = 0
 {
-    if(root == NULL)
+    //printf("%s", t->key);
+    if( !n ) n = (int)strlen(x)+1;
+    if( !t ) return 0;
+    int k = prefix(x,n,t->key,t->len);
+    if( k==0 ) return find(t->next,x,n); // let’s look for the child’s node
+    if( k==n ) return t;
+    if( k==t->len ) return find(t->link,x+k,n-k); // let’s look for at the child’s node
+    return 0;
+}
+
+struct RadixNode *findByPrefix(struct RadixNode *root, char* searchKey, int n, struct FoodItem *results, char *originalKey, bool *found)
+{
+    if( !n ) //if n is 0, assign to length of searchkey
     {
+        //printf("search%s", searchKey);
+        n = (int)strlen(searchKey);
+        strncpy(originalKey, searchKey, n);
+        originalKey[n] = '\0';
+        //printf("OG%s\n", originalKey);
+    }
+    if( !root )
+    {
+        return 0;
+    }
+    int k = prefix(searchKey,n,root->key,root->len);
+    //printf("\nk: %d   n: %d\n", k, n);
+    if(k==0)
+    {
+        //printf("no match: %s\n", root->key);
+        return findByPrefix(root->next, searchKey, n, results, originalKey, found);
+    }
+    if(k == n)
+    {
+        /*
+        char testvar2[50];
+        strncpy(testvar2, root->key, (size_t)root->len);
+        testvar2[root->len] = '\0';
+        printf("perfect Match:%s-\n", testvar2);*/
+
+        *found = true;
+        strncpy(originalKey+strlen(originalKey)-k, root->key, (size_t)root->len);
+        int stringLength = (int)strlen(originalKey) - k; // + root->len;
+        originalKey[stringLength+1] = '\0';
+        //printf("test variable:%s-%d\n", originalKey, k);
+        return root;
+    }
+    if(k == root->len)
+    {
+        char testvar[50];
+        strncpy(testvar, root->key, root->len);
+        testvar[root->len] = '\0';
+        //printf("match of length: %s\n", testvar);
+        return findByPrefix(root->link, searchKey+k, n-k, results, originalKey, found);
+    }
+    /*
+    if(k > 0 && k < n)
+    {
+        printf("look what I found!\n");
+        printf("%s\n", root->key);
+        root = root->link;
+        int count = 0;
+        while(root->next)
+        {
+            if(prefix())
+            struct FoodItem *newItem = createItem(root->key);
+            results[count] = *newItem;
+            printf("%s\n", root->key);
+            root = root->next;
+            count++;
+        }
+        return root;
+    }*/
+    return 0;
+}
+
+/*
+ if(k==n)
+    {
+        bool stillSearching = true;
+        while(stillSearching)
+        {
+            printf("\nfound: %s\n", root->key);
+            stillSearching = false;
+        }
         return;
     }
-    if(root->isLeaf)
-    {
-
-        for(int j=0; j<pos; j++)
-        {
-            mvwprintw(searchResults, j+1, 1, "%s", wordArray);
-        }
-    }
-    for(int i=0; i<256; i++)
-    {
-        if(root->children[i] != NULL)
-        {
-            wordArray[pos] = (char)i;
-            printAllWords(root->children[i], wordArray, pos+1, searchResults);
-        }
-    }
+*/
+void split(struct RadixNode* t, int k) // dividing t node according to k key symbol
+{
+    struct RadixNode* p = newRadixNode(t->key+k, t->len-k);
+    p->link = t->link;
+    t->link = p;
+    char a[k];
+    //char* a = new char[k];
+    strncpy(a,t->key,k);
+    //memset(t->key, 0, strlen(t->key));
+    //free(t->key);
+    strncpy(t->key, a, k);
+    //t->key = a;
+    t->len = k;
 }
 
-void lexicographPrint(struct TreeNode *trieTree, char *word, char *prefix, WINDOW *searchResults)
+struct RadixNode* radixInsert(struct RadixNode *t, char* x, int n) // inserting x key in t tree, call with n = 0;
 {
-    int i;
-    bool noChild = true;
-
-    if(trieTree->isLeaf && strlen(word) != 0)
+    int k = 0;
+    if( !n )
     {
-        mvwprintw(searchResults, 3, 1, "%s", word);
-        char *itr;
-        itr = &word[0];
-        mvwprintw(searchResults, 1, 1, "%s", prefix);
-        //printf("%s", prefix);
-        while(*itr != word[strlen(word)-1])
-        {
-            mvwprintw(searchResults, 1, (int)strlen(prefix)+1, "%c", *itr);
-            //printf("%c", *itr);
-            //printf("before");
-            itr++;
-            //printf("after");
-        }
-        printf("\n");
+        if(strlen(x) > 8) x = x + 9; //clears ID
+        n = (int)strlen(x)+1;
     }
-    //printf("2");
-
-    char currentWord[strlen(word)+1];
-    for(i = 0; i<256; ++i)
+    if( t == 0 )
     {
-        if(trieTree->children[i] != NULL)
-        {
-            noChild = false;
-            strncpy(currentWord, word, strlen(word));
-            //currentWord[strlen(word)-1] = (char)('A'+i);
-            currentWord[strlen(word)-1] = (char)(i);
-            fflush(stdout);
-            lexicographPrint(trieTree->children[i], currentWord, prefix, searchResults);
-            currentWord[strlen(word)-1] = '\0';
-        }
+        return newRadixNode(x, n);
     }
-    //printf("3");
+    //printf("%d", t->len);
+    k = prefix(x,n,t->key,t->len);
 
-    //currentWord[strlen(word)-1] = '\0';
+    if( k==0 ) t->next = radixInsert(t->next,x,n);
+    else if( k<n )
+    {
+        if( k<t->len ) // cut or not to cut?
+            split(t,k);
+        t->link = radixInsert(t->link,x+k,n-k);
+    }
+    return t;
+}
 
-    //printf("4");
+struct DiaryEntry
+{
+    short year, month, day;
+    struct RadixNode *items;
+    int *servings;
+};
 
+void loadUserDiary(FILE *diary)
+{
+    int count = 0;
+    char str[300];
+    struct DiaryEntry *newEntry;
+    while(fgets(str, sizeof(str), diary))
+    {
+        if(str[0] == '~') //line contains date information
+        {
+            count = 0;
+            short year = (str[1]-48)*1000 + (str[2]-48)*100 + (str[3]-48)*10 + (str[4]-48);
+            short month = (str[5]-48)*10 + (str[6]-48);
+            short day = (str[7]-48)*10 + (str[8]-48);
+            char *nl;
+            nl = strchr(str, '\n');
+            unsigned long numItems = strtoul(str+9, &nl, 0);
+            newEntry = malloc(sizeof(struct DiaryEntry) + numItems*(sizeof(struct RadixNode*)+sizeof(int*)));
+            free(newEntry);
+        }else
+        {
+            //tutorialspoint.com/c_standard_library/c_function_strtok.htm
+            char *token;
+            token = strtok(str, "~");
+            while(token != NULL)
+            {
+                token = strtok(NULL, "~");
+            }
+            //printf("%s", str);
+        }
+        count++;
+    }
 }
 
 #endif
