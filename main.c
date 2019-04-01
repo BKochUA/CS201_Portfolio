@@ -11,11 +11,17 @@ FILE *diaryFile;
 int currentScreen = 0;
 const char *options[] = {"View Today's Log", "Search for Food", "Return to Login", "EXIT"};
 const char *itemOptions[] = {"Add to Log", "Return to Search", "Return to Main Menu"};
-const char *diaryOptions[] = {"Add Item", "Update Item", "Delete Item", "Return To Main Menu"};
+const char *diaryOptions[] = {"Add Item", "Update Item", "Delete Item" }; // , "Return To Main Menu"};
+const char *diaryDateOptions[] = {"<- Previous Day", "EXIT", "Next Day ->"};
+const char *yesNo[] = {"YES", "NO"};
+bool menuSelected = true;
+struct DiaryEntry *currentEntry;
 int keyPress;
 int selected = 0;
+int secondarySelect = -1;
+int scrollNum = -1;
 int loopvar = 1;
-WINDOW *mainScreen, *mainMenu, *loginScreen, *searchBar, *searchResults, *searchResultsBox, *itemDetails, *diaryScreen;
+WINDOW *mainScreen, *mainMenu, *loginScreen, *searchBar, *searchResults, *searchResultsBox, *itemDetails, *diaryScreen, *diaryMenu, *diaryDateSelector;
 struct FoodItem results[40];
 int numResults = 0;
 struct FoodItem *displayedItem;
@@ -25,6 +31,8 @@ char username[20];
 char searchKey[75];
 int sizeY, sizeX;
 int ch;
+char previousWord[200];
+int stringLength = 0;
 
 //get current date
 void GetCurrentDate()
@@ -38,24 +46,134 @@ void GetCurrentDate()
 
 }
 
-void freeMemory(struct TreeNode *node)
+//struct RadixNode *foundNodes[500];
+int count;
+
+/*
+void fillOutTree2(struct RadixNode *t)
 {
-    if(node == NULL)
+    if(t == NULL)
     {
         return;
     }
-    if(node->isLeaf)
+
+    foundNodes[count] = t;
+    count++;
+
+    fillOutTree2(t->link);
+
+    fillOutTree2(t->next);
+}*/
+
+
+struct RadixNode *previouslyVisited;
+char previous[200] = " ";
+int rightCount = 0;
+int parentlen = 0;
+int test = 0;
+void fillOutTree(struct RadixNode *t, struct RadixNode *parent, int *count, struct FoodItem *results, char* originalKey, char *word, bool beenthere)
+{
+    //printf("rights: %d- ", rightCount);
+    if(t == NULL)
     {
-        free(node->items);
-        free(node);
-    }
-    for(int i=0; i<256; i++)
-    {
-        if(node->children[i] != NULL)
+
+        //word[stringLength] = '\0';
+        //struct FoodItem *newItem = createItem(word);
+        //results[count] = *newItem;
+
+        if(strncmp(previous, word, (int)strlen(word)) != 0)
         {
-            freeMemory(node->children[i]);
+            count++;
+            printf("wow: %s\n", word);
+            strncpy(previous, word, (size_t)stringLength);
+            stringLength = stringLength - parent->len;
+            //printf("length:%d\n", stringLength);
+            memset(word+stringLength, 0, (size_t)parent->len*sizeof(char));
+            word[stringLength] = '\0';
+
+            //printf("parentinfo: %s, %d\n", parent->key, parent->len);
+            //printf("strlength: %d", stringLength);
+            //strncpy(word-parent->len, originalKey, (size_t)stringLength);
+
+            //printf("after wow:%s\n", word);
+
         }
+
+        return;
     }
+    //printf("parent:%d\n", parent->len);
+    printf("parentlen: %d   prev:%d\n", parentlen, (int)strlen(previous));
+    //printf("strlen before:%d\n", stringLength);
+    //printf("current key length:%d\n", t->len);
+    if(rightCount > 1)
+    {
+        if(rightCount > 3)
+        {
+            stringLength = parentlen-1;
+            memset(word+stringLength, 0, (size_t)(parent->len)*sizeof(char));
+            parentlen = 0;
+        }else if(rightCount > 2)
+        {
+            stringLength = (int)strlen(previous) - parentlen-1;
+            memset(word+stringLength, 0, (size_t)(parent->len)*sizeof(char));
+            parentlen = 0;
+        } else
+        {
+            stringLength = stringLength - parent->len;
+            memset(word+stringLength, 0, (size_t)(parent->len)*sizeof(char));
+        }
+
+        printf("strlen:%d\n", stringLength);
+        word[stringLength] = '\0';
+        //printf("help:%s----%s\n", parent->key, word);
+        rightCount = 1;
+        //rightCount = rightCount - 1;
+        //previouslyVisited = previouslyVisited->next;
+    }
+
+    printf("works\n");
+
+    char testvar2[200];
+    strncpy(testvar2, t->key, (size_t)t->len);
+    testvar2[t->len] = '\0';
+    //printf("still linking:%s\n", testvar2);
+    beenthere = false;
+
+    //add link to string
+    //strncpy(word+stringLength, t->key, (size_t)t->len);
+    strcat(word, testvar2);
+    //printf("strlen:%d, OMG:%d\n",stringLength, t->len);
+    stringLength = stringLength+t->len;
+
+    if(t->next)
+    {
+        //printf("last next");
+        //parent = t;
+    }
+
+    rightCount = 0;
+    //parentlen = 0;
+    fillOutTree(t->link, t, count, results, originalKey, word, beenthere);
+    if(rightCount == 0) test = stringLength;
+    rightCount = rightCount+1;
+    printf("on to right nodes: parent:%d-%d\n", parent->len, rightCount);
+    printf("oh:%d\n", parentlen);
+    if(rightCount > 1 && parent->len > parentlen) parentlen = parent->len;
+    /*
+    if(rightCount > 2)
+    {
+        stringLength = stringLength - parent->len;
+        memset(word+stringLength, 0, (size_t)parent->len*sizeof(char));
+        word[stringLength] = '\0';
+        //printf("help:%s----%s\n", parent->key, word);
+        rightCount = rightCount - 1;
+        //previouslyVisited = previouslyVisited->next;
+    }*/
+
+    //stringLength = stringLength - parent->len;
+
+    fillOutTree(t->next, t, count, results, originalKey, word, beenthere);
+
 }
 
 void ScreenHandler()
@@ -81,7 +199,7 @@ void ScreenHandler()
                         loopvar = 0;
                         break;
                     case 10: //enter so go to next screen and load diary of username
-                        if(strlen(username))
+                        if(strlen(username) > 0) //only advance to next screen if username is valid
                         {
                             char *diaryFileName = malloc(30*sizeof(char));
                             strncpy(diaryFileName, "logs/", 5);
@@ -93,16 +211,23 @@ void ScreenHandler()
                                 diaryFile = fopen(diaryFileName, "w+");
                                 //mvwprintw(mainScreen, 1, 1, "-%s-", diaryFileName);
                             }
-                            free(diaryFileName);
-                            loadUserDiary(diaryFile);
+                            //free(diaryFileName);
+
+                            loopvar = 0;
+                            endwin();
+                            currentEntry = loadUserDiary(diaryFile);
+                            if(currentEntry)
+                            {
+                                printf("items:%d", (int)currentEntry->numItems);
+                                //printf("mfg:%s", currentEntry->items[0]->mfg);
+                            }
+                            //wclear(loginScreen);
+                            //wrefresh(mainScreen);
+                            currentScreen = 2;
                         }else
                         {
                             mvwprintw(loginScreen, 3, 1, "Username must be at least one character long");
                         }
-
-                        wrefresh(mainScreen);
-                        currentScreen = 2;
-                        wclear(loginScreen);
                         break;
                     case 127: //backspacing
                         if(strlen(username) != 0)
@@ -189,6 +314,8 @@ void ScreenHandler()
                             loopvar = 0;
                         }
                         selected = 0;
+                        secondarySelect = -1;
+                        menuSelected = true;
                         break;
                     default:
                         break;
@@ -227,11 +354,13 @@ void ScreenHandler()
                             if(z+1 == selected)
                             {
                                 wattron(searchResults, A_REVERSE);
-                                mvwprintw(searchResults, z, 0, "item: %s - mfg: %s", results[z].name, results[z].mfg);
+                                char *shortName = getFoodName(results[z].name);
+                                mvwprintw(searchResults, z, 0, "item: %s - mfg: %s", shortName, results[z].mfg);
                                 wattroff(searchResults, A_REVERSE);
                             }else
                             {
-                                mvwprintw(searchResults, z, 0, "item: %s - mfg: %s", results[z].name, results[z].mfg);
+                                char *shortName = getFoodName(results[z].name);
+                                mvwprintw(searchResults, z, 0, "item: %s - mfg: %s", shortName, results[z].mfg);
                             }
                         }
                         //wrefresh(searchResults);
@@ -248,7 +377,8 @@ void ScreenHandler()
                             char *printUtility = malloc(200 * sizeof(char));
                             numResults = findByPrefix(radixTree, searchKey, 0, results, printUtility);
                             for (int q = 0; q < numResults; q++) {
-                                mvwprintw(searchResults, q, 0, "item: %s - mfg: %s", results[q].name, results[q].mfg);
+                                char *shortName = getFoodName(results[q].name);
+                                mvwprintw(searchResults, q, 0, "item: %s - mfg: %s", shortName, results[q].mfg);
                             }
                             free(printUtility);
                         }else
@@ -262,6 +392,50 @@ void ScreenHandler()
                             wclear(searchResultsBox);
                         }
                         break;
+                        /*
+                    case 10:
+                        wrefresh(searchResults);
+                        wclear(searchResults);
+                        //these 2 lines are just here so I can read the error summary from valgrind
+                        loopvar = 0;
+                        endwin();
+
+                        if(selected == 0)
+                        {
+                            //char *printUtility = malloc(200 * sizeof(char));
+                            char printUtility[200];
+                            bool found = false;
+                            struct RadixNode *perfectMatch = findByPrefix(radixTree, searchKey, 0, results, &printUtility[0], &found);
+                            int count = 0;
+                            if(found)
+                            {
+                                printf("test variable:%s-\n", printUtility);
+                                char *word = malloc(199*sizeof(char));
+                                strncpy(word, printUtility, strlen(printUtility)); //puts original prefix stored in word
+
+                                stringLength = (int)strlen(printUtility); //gets length of prefix
+                                word[stringLength] = '\0';
+                                perfectMatch = perfectMatch->link; //everything with prefixes that match this are children of the link
+                                //printf("being passed to fill out tree:%s-%d\n", word, (int)strlen(word));
+                                //fillOutTree(perfectMatch, perfectMatch, &count, results, word, word, false); //add all items with prefix
+                                //free(word);
+                            }
+
+                            for (int q = 0; q < count; q++) {
+                                //mvwprintw(searchResults, q, 0, "item: %s - mfg: %s", results[q].name, results[q].mfg);
+                            }
+                        }else
+                        {
+                            displayedItem = &results[selected-1];
+                            selected = 0;
+                            currentScreen = 4;
+                            memset(searchKey, 0, strlen(searchKey));
+                            wclear(searchBar);
+                            wclear(searchResults);
+                            wclear(searchResultsBox);
+                        }
+                        break;
+                         */
                     case 27:
                         wclear(mainScreen);
                         wrefresh(mainScreen);
@@ -297,31 +471,33 @@ void ScreenHandler()
                 wclear(mainScreen);
                 box(mainScreen, 0, 0);
                 wrefresh(mainScreen);
-                mvwprintw(itemDetails, 0, 0, "Item Details:");
-                mvwprintw(itemDetails, 1, 0, "Name:            %s", displayedItem->name);
-                mvwprintw(itemDetails, 2, 0, "Manufacturer:    %s", displayedItem->mfg);
+                mvwprintw(itemDetails, 0, 0, "Selected Date: %d/%d/%d", month, day, year);
+                mvwprintw(itemDetails, 2, 0, "Item Details:");
+                char *itemName = getFoodName(displayedItem->name);
+                mvwprintw(itemDetails, 3, 0, "Name:            %s", itemName);
+                mvwprintw(itemDetails, 4, 0, "Manufacturer:    %s", displayedItem->mfg);
                 if(displayedItem->grams)
                 {
-                    mvwprintw(itemDetails, 3, 0, "Serving Size:    %.2f %s (%dg)", displayedItem->servingSize, displayedItem->servingUnits, displayedItem->servingWeight);
+                    mvwprintw(itemDetails, 5, 0, "Serving Size:    %.2f %s (%dg)", displayedItem->servingSize, displayedItem->servingUnits, displayedItem->servingWeight);
                 }else
                 {
-                    mvwprintw(itemDetails, 3, 0, "Serving Size:    %.2f %s (%d%ml)", displayedItem->servingSize, displayedItem->servingUnits, displayedItem->servingWeight);
+                    mvwprintw(itemDetails, 6, 0, "Serving Size:    %.2f %s (%d%ml)", displayedItem->servingSize, displayedItem->servingUnits, displayedItem->servingWeight);
                 }
-                mvwprintw(itemDetails, 4, 0, "Calories:        %.2f", displayedItem->calories);
-                mvwprintw(itemDetails, 5, 0, "Total Fat        %.2fg", displayedItem->fat);
-                mvwprintw(itemDetails, 6, 0, "Carbohydrate:    %.2fg", displayedItem->carbs);
-                mvwprintw(itemDetails, 7, 0, "Protein:         %.2fg", displayedItem->protein);
+                mvwprintw(itemDetails, 7, 0, "Calories:        %.2f", displayedItem->calories);
+                mvwprintw(itemDetails, 8, 0, "Total Fat        %.2fg", displayedItem->fat);
+                mvwprintw(itemDetails, 9, 0, "Carbohydrate:    %.2fg", displayedItem->carbs);
+                mvwprintw(itemDetails, 10, 0, "Protein:         %.2fg", displayedItem->protein);
                 //wclear(itemDetails);
                 for(int w = 0; w < 3; w++)
                 {
                     if(w == selected)
                     {
                         wattron(itemDetails, A_REVERSE);
-                        mvwprintw(itemDetails, w+9, 25-((int)strlen(itemOptions[w])/2), itemOptions[w]);
+                        mvwprintw(itemDetails, w+12, 25-((int)strlen(itemOptions[w])/2), itemOptions[w]);
                         wattroff(itemDetails, A_REVERSE);
                     }else
                     {
-                        mvwprintw(itemDetails, w+9, 25-((int)strlen(itemOptions[w])/2), itemOptions[w]);
+                        mvwprintw(itemDetails, w+12, 25-((int)strlen(itemOptions[w])/2), itemOptions[w]);
                     }
                 }
                 keyPress = wgetch(itemDetails);
@@ -334,9 +510,9 @@ void ScreenHandler()
                         if(selected < 2) selected++;
                         break;
                     case 10:
-                        if(selected == 0)
+                        if(selected == 0) //add to log
                         {
-
+                            //AddToLog();
                         }else if(selected == 1)
                         {
                             currentScreen = 3;
@@ -355,29 +531,144 @@ void ScreenHandler()
             case 5: //food diary
                 wclear(mainScreen);
                 box(mainScreen, 0, 0);
+                //box(diaryDateSelector, 0, 0);
+                box(diaryMenu, 0, 0);
                 wrefresh(mainScreen);
-                mvwprintw(diaryScreen, 0, 0, "Food log for %d/%d/%d", month, day, year);
+                wrefresh(diaryMenu);
+                //wrefresh(diaryDateSelector);
+                mvwprintw(diaryScreen, 0, 0, "Food log:");
+
+                loopvar = 0;
+                endwin();
+
+                if(currentEntry)
+                {
+                    for(int j=0; j < currentEntry->numItems; j++) //print foodItems
+                    {
+                        if(j == scrollNum)
+                        {
+                            wattron(diaryScreen, A_REVERSE);
+                            char * shortname = getFoodName(currentEntry->items[j]->name);
+                            mvwprintw(diaryScreen, j+2, 0, shortname);
+                            wattroff(diaryScreen, A_REVERSE);
+                        }else
+                        {
+                            char * shortname = getFoodName(currentEntry->items[j]->name);
+                            mvwprintw(diaryScreen, j+2, 0, shortname);
+                        }
+                    }
+                }else
+                {
+                    mvwprintw(diaryScreen, 2, 0, "No entry currently available");
+                    mvwprintw(diaryScreen, 3, 0, "Create entry?");
+                    for(int w = 0; w < 2; w++) //print yes and no
+                    {
+                        if(w == scrollNum)
+                        {
+                            wattron(diaryScreen, A_REVERSE);
+                            mvwprintw(diaryScreen, 5, 0, yesNo[w]);
+                            wattroff(diaryScreen, A_REVERSE);
+                        }else
+                        {
+                            mvwprintw(diaryScreen, 6, 0, yesNo[w]);
+                        }
+                    }
+                }
+
 
                 for(int c = 0; c < 4; c++) //print options
                 {
                     if(c == selected)
                     {
-                        wattron(diaryScreen, A_REVERSE);
-                        mvwprintw(diaryScreen, c+9, 25-((int)strlen(diaryOptions[c])/2), diaryOptions[c]);
-                        wattroff(diaryScreen, A_REVERSE);
+                        wattron(diaryMenu, A_REVERSE);
+                        mvwprintw(diaryMenu, 1, 1+(c*(sizeX)/3), diaryOptions[c]);
+                        wattroff(diaryMenu, A_REVERSE);
                     }else
                     {
-                        mvwprintw(diaryScreen, c+9, 25-((int)strlen(diaryOptions[c])/2), diaryOptions[c]);
+                        mvwprintw(diaryMenu, 1, 1+(c*(sizeX)/3), diaryOptions[c]);
+                    }
+                    if(c == secondarySelect)
+                    {
+                        wattron(diaryMenu, A_REVERSE);
+                        mvwprintw(diaryMenu, 2, 1+(c*(sizeX)/3), diaryDateOptions[c]);
+                        wattroff(diaryMenu, A_REVERSE);
+                    }else
+                    {
+                        mvwprintw(diaryMenu, 2, 1+(c*(sizeX)/3), diaryDateOptions[c]);
                     }
                 }
+                wrefresh(diaryMenu);
                 keyPress = wgetch(diaryScreen);
                 switch(keyPress)
                 {
+                    case KEY_LEFT:
+                        if(menuSelected)
+                        {
+                            if(selected == -1) //current option is date select
+                            {
+                                if(secondarySelect != 0) secondarySelect--;
+                            }else
+                            {
+                                if(selected != 0) selected--;
+                            }
+                        }
+                        break;
+                    case KEY_RIGHT:
+                        if(menuSelected)
+                        {
+                            if(selected == -1) //current option is date select
+                            {
+                                if(secondarySelect < 2) secondarySelect++;
+                            }else
+                            {
+                                if(selected < 2) selected++;
+                            }
+                        }
+                        break;
                     case KEY_UP:
-                        if(selected != 0) selected--;
+                        if(menuSelected)
+                        {
+                            if(selected == -1) //current option is date select
+                            {
+                                selected = secondarySelect;
+                                secondarySelect = -1;
+                            }
+                        }else
+                        {
+                            if(scrollNum != 0) scrollNum--;
+                        }
                         break;
                     case KEY_DOWN:
-                        if(selected < 3) selected++;
+                        if(menuSelected)
+                        {
+                            if(secondarySelect == -1) //current option is item options
+                            {
+                                secondarySelect = selected;
+                                selected = -1;
+                            }
+                        }else
+                        {
+                            if(currentEntry)
+                            {
+                                if(scrollNum < 1) scrollNum++;
+                            }else if(scrollNum < 100)
+                            {
+                                scrollNum++;
+                            }
+                        }
+                        break;
+                    case KEY_STAB: //switch between menu and main screen
+                        if(menuSelected)
+                        {
+                            selected = secondarySelect = -1;
+                            scrollNum = 0;
+                        }else
+                        {
+                            selected = 0;
+                            secondarySelect = -1;
+                            scrollNum = -1;
+                        }
+                        menuSelected = !menuSelected;
                         break;
                     case 10:
                         if(selected == 0) //add item, launches search screen
@@ -391,18 +682,23 @@ void ScreenHandler()
                         }else if(selected == 2) //delete item
                         {
 
-                        }else {
-                            wclear(mainScreen);
-                            wrefresh(mainScreen);
-                            wclear(diaryScreen);
-                            currentScreen = 2;
-                            selected = 0;
                         }
+                        break;
+                    case 27:
+                        wclear(mainScreen);
+                        wrefresh(mainScreen);
+                        wclear(diaryScreen);
+                        wclear(diaryDateSelector);
+                        wclear(diaryMenu);
+                        currentScreen = 2;
+                        selected = 0;
                         break;
                     default:
                         break;
                 }
                 wrefresh(diaryScreen);
+                wrefresh(diaryMenu);
+                //wrefresh(diaryDateSelector);
                 break;
             case 6: //confirm exit screen
                 break;
@@ -490,6 +786,7 @@ int main() {
     box(loginScreen, 0, 0);
     refresh();
     wrefresh(loginScreen);
+    keypad(loginScreen, true);
 
 
     searchBar = newwin(3, sizeX-2, 2, 1);
@@ -506,9 +803,13 @@ int main() {
     wrefresh(itemDetails);
     keypad(itemDetails, true);
 
-    diaryScreen = itemDetails = newwin(sizeY-2, sizeX-2, 1, 1);
+    diaryScreen = newwin(sizeY-2, sizeX-2, 1, 1);
+    //diaryDateSelector = newwin(3, sizeX, sizeY-3, 0);
+    diaryMenu = newwin(4, sizeX-2, sizeY-5, 1);
     refresh();
     wrefresh(diaryScreen);
+    //wrefresh(diaryDateSelector);
+    wrefresh(diaryMenu);
     keypad(diaryScreen, true);
 
     wrefresh(mainMenu);

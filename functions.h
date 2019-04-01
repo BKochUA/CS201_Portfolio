@@ -6,26 +6,17 @@
 #include <ncurses.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 
 struct FoodItem
 {
     unsigned int ID;
-    char name[200]; //max is 199
+    char name[300]; //max is 199
     char mfg[80]; //max is 78
     float calories, carbs, fat, protein, servingWeight, servingSize;
     char servingUnits[130];
     bool grams;
 };
-
-struct TreeNode
-{
-    struct TreeNode *children[256];
-    struct FoodItem *items;
-
-    bool isLeaf;
-};
-
-typedef struct TreeNode Node;
 
 static char *tokenize(char *str, const char *delimiter)
 {
@@ -47,6 +38,17 @@ static char *tokenize(char *str, const char *delimiter)
         src = ++p;
     }else { src += strlen(src); }
     return value;
+}
+
+char *getFoodName(char *fullname)
+{
+    char *tilda;
+    tilda = strchr(fullname, '~');
+    unsigned long namesize = tilda - fullname;
+    char *shortname = malloc(namesize*sizeof(char));
+    strncpy(shortname, fullname, namesize);
+    shortname[namesize] = '\0';
+    return shortname;
 }
 
 void printFoodItem(struct FoodItem *itemToPrint)
@@ -77,7 +79,8 @@ struct FoodItem *createItem(const char *data)
         {
 
             case 0:
-                strcpy(createdItem->name, pch);
+                strcpy(createdItem->name, data);
+                //strcpy(createdItem->name, pch);
                 break;
             case 1:
                 strcpy(createdItem->mfg, pch);
@@ -307,68 +310,180 @@ struct RadixNode* radixInsert(struct RadixNode *t, char* x, int n) // inserting 
     return t;
 }
 
-void getAllItems2(struct TreeNode *root, struct FoodItem *results, char *wordUtil, int pos)
+bool earlier(short year1, short month1, short day1, short year2, short month2, short day2) //1 is checking against 2
 {
-    if(root == NULL)
+    if(year1 < year2)
     {
-        return;
-    }
-    if(root->isLeaf)
+        return true;
+    }else if(year1 > year2)
     {
-        for(int j=0; j<pos; j++)
+        return false;
+    }else if(year1 == year2)
+    {
+        if(month1 < month2)
         {
-            results[j] = *root->items;
-            //strncpy(results[j], wordUtil, strlen(wordUtil));
-        }
-    }
-    for(int i=0; i<256; i++)
-    {
-        if(root->children[i] != NULL)
+            return true;
+        }else if(month1 > month2)
         {
-            wordUtil[pos] = (char)i;
-            getAllItems2(root->children[i], results, wordUtil, pos+1);
+            return false;
+        }else if(month1 == month2)
+        {
+            if(day1 < day2)
+            {
+                return true;
+            }else if(day1 > day2)
+            {
+                return false;
+            }else return false;
         }
     }
 }
 
 struct DiaryEntry
 {
-    short year, month, day;
-    struct RadixNode *items;
-    int *servings;
+    short year, month, day, numItems;
+    struct DiaryEntry *next, *prev;
+    struct FoodItem *items[100];
+    unsigned short servings[100];
 };
 
-void loadUserDiary(FILE *diary)
+struct DiaryEntry *insertDiaryEntry(short year, short month, short day, short numItems, bool first, struct DiaryEntry *anchor)
 {
-    int count = 0;
-    char str[300];
     struct DiaryEntry *newEntry;
+    newEntry = malloc(sizeof(struct DiaryEntry));
+    newEntry->year = year;
+    newEntry->month = month;
+    newEntry->day = day;
+    newEntry->numItems = numItems;
+    if(first)
+    {
+        newEntry->next = NULL;
+        newEntry->prev = NULL;
+    }else
+    {
+        bool searching = true;
+        while(searching)
+        {
+            if(earlier(year, month, day, anchor->year, anchor->month, anchor->day))
+            {
+                if(anchor->prev)
+                {
+                    if(earlier(year, month, day, anchor->prev->year, anchor->prev->month, anchor->prev->day))
+                    {
+                        anchor = anchor->prev;
+                    }else
+                    {
+                        anchor->prev->next = newEntry;
+                        newEntry->prev = anchor->prev;
+                        anchor->prev = newEntry;
+                    }
+                }else{
+                    anchor->prev = newEntry;
+                    newEntry->next = anchor;
+                    newEntry->prev = NULL;
+                    searching = false;
+                }
+            }else
+            {
+                if(anchor->next)
+                {
+                    if(earlier(anchor->next->year, anchor->next->month, anchor->next->day, year, month, day))
+                    {
+                        anchor = anchor->next;
+                    }else
+                    {
+                        anchor->next->prev = newEntry;
+                        newEntry->next = anchor->next;
+                        anchor->next = newEntry;
+                    }
+                }else {
+                    anchor->next = newEntry;
+                    newEntry->prev = anchor;
+                    newEntry->next = NULL;
+                    searching = false;
+                }
+            }
+        }
+    }
+
+    return newEntry;
+}
+
+void populateDiaryEntry(struct DiaryEntry *entry, char *data, short count)
+{
+    char *start;
+    start = strchr(data, '~');
+    unsigned short servings = (unsigned short)strtoul(data, &start, 0);
+    entry->servings[count] = servings;
+    char info[300];
+    data = start+1;
+    struct FoodItem *item = malloc(sizeof(struct FoodItem));
+    item = createItem(data);
+    //printf("item: %s\n", item->mfg);
+    entry->items[count] = item;
+    printf("AHHH:%s", entry->items[count]->mfg);
+}
+
+bool isToday(short year, short month, short day)
+{
+    time_t now;
+    time(&now);
+    struct tm *local = localtime(&now);
+    short todayDay = (short)local->tm_mday;
+    short todayMonth = (short)local->tm_mon + 1;
+    short todayYear = (short)local->tm_year + 1900;
+    if(year == todayYear && month == todayMonth && day == todayDay)
+    {
+        return true;
+    }else return false;
+}
+
+struct DiaryEntry *loadUserDiary(FILE *diary)
+{
+    //printf("loaded");
+    short count = 0;
+    bool first = true;
+    char str[300];
+    short year, month, day = 0;
+    unsigned short numItems = 0;
+    struct DiaryEntry *newEntry, *todayEntry, *anchorEntry = NULL;
     while(fgets(str, sizeof(str), diary))
     {
+        if(strlen(str) == 0)
+        {
+            return 0;
+        }
         if(str[0] == '~') //line contains date information
         {
             count = 0;
-            short year = (str[1]-48)*1000 + (str[2]-48)*100 + (str[3]-48)*10 + (str[4]-48);
-            short month = (str[5]-48)*10 + (str[6]-48);
-            short day = (str[7]-48)*10 + (str[8]-48);
+            year = (str[1]-48)*1000 + (str[2]-48)*100 + (str[3]-48)*10 + (str[4]-48);
+            month = (str[5]-48)*10 + (str[6]-48);
+            day = (str[7]-48)*10 + (str[8]-48);
             char *nl;
             nl = strchr(str, '\n');
-            unsigned long numItems = strtoul(str+9, &nl, 0);
-            newEntry = malloc(sizeof(struct DiaryEntry) + numItems*(sizeof(struct RadixNode*)+sizeof(int*)));
-            free(newEntry);
+            numItems = (unsigned short)strtoul(str+9, &nl, 0);
+            newEntry = insertDiaryEntry(year, month, day, numItems, first, anchorEntry);
+            if(first)
+            {
+                anchorEntry = newEntry;
+            }
+            if(isToday(year, month, day))
+            {
+                todayEntry = newEntry;
+            }
         }else
         {
-            //tutorialspoint.com/c_standard_library/c_function_strtok.htm
-            char *token;
-            token = strtok(str, "~");
-            while(token != NULL)
-            {
-                token = strtok(NULL, "~");
-            }
+            //printf("%s\n", str);
+            populateDiaryEntry(newEntry, str, count);
+            //printf("\nhmm:%s\n", newEntry->items[count]->mfg);
+            count++;
             //printf("%s", str);
         }
-        count++;
     }
+    if(todayEntry != NULL)
+    {
+        return todayEntry;
+    }else return 0;
 }
 
 #endif
