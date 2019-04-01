@@ -18,6 +18,8 @@ struct FoodItem
     bool grams;
 };
 
+//https://stackoverflow.com/questions/30294129/i-need-a-mix-of-strtok-and-strtok-single
+//modified version
 static char *tokenize(char *str, const char *delimiter)
 {
     static char *src = NULL;
