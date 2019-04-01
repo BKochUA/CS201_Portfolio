@@ -9,3 +9,5 @@ After realizing that I didn't have much time left I decided to scrap that and go
 if you want to test the project, I would suggest the search screen, it works pretty well. You can type the beginning of a product name, results will show up, and you can use the arrow keys and enter to select an item and view it's details.
 
 as for borrowed code, I've marked in my comments where I have borrowed from.
+download the dataset here: https://ualearn.blackboard.com/bbcswebdav/pid-4162780-dt-content-rid-37873091_1/xid-37873091_1
+place it int the same folder as the makefile, main.c, and functions.h
